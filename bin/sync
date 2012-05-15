@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+
+require "icalendar"
+require "open-uri"
+
+require "./lib/off-call"
+
+OffCall.apply_environment!
+
+cal_file = open(ENV["ICAL_URI"]).read
+cal = Icalendar.parse(cal_file).first
+
+# Validate and sync next 4 weeks
+
+puts cal.inspect
+

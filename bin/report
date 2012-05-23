@@ -9,7 +9,7 @@ ENV["TZ"] = "UTC"
 OffCall::PagerDuty.connect(ENV["PAGERDUTY_SUBDOMAIN"], ENV["PAGERDUTY_USER"], ENV["PAGERDUTY_PASSWORD"])
 
 SERVICES  = ENV["SERVICES"].split(",") || abort("Must provide SERVICES=PXXXXXX,PYYYYYY")
-SINCE     = ENV["SINCE"].to_time rescue "Last Wednesday".to_time
+SINCE     = ENV["SINCE"].to_time rescue "Last Week".to_time
 UNTIL     = ENV["UNTIL"].to_time rescue "Now".to_time
 
 incidents = []
@@ -18,30 +18,37 @@ SERVICES.each do |service_id|
   incidents += s.incidents(since: SINCE, until: UNTIL)
 end
 
-resolvers = {}
 subjects  = {}
+resolvers = {}
 hours     = Hash[(0..23).zip [0]*24]
+days      = Hash[%w(Mon Tue Wed Thu Fri Sat Sun ).zip [0]*7]
 
 incidents.each do |i|
-  k = i["last_status_change_on"].to_time.hour
-  hours[k] ||= 0
-  hours[k]  += 1
-
-  k = i["last_status_change_by"]["name"] rescue "nagios"
-  resolvers[k] ||= 0
-  resolvers[k]  += 1
-
   # normalize instance-type-id/Service
   k = i["incident_key"].gsub(/^([a-z-]+)-([0-9]+)\/([^:]+)/, "\\1-XXXXX/\\3")
   subjects[k] ||= 0
   subjects[k]  += 1
+
+  k = i["last_status_change_by"]["name"] rescue "Nobody"
+  resolvers[k] ||= 0
+  resolvers[k]  += 1
+
+  k = i["last_status_change_on"].to_time.hour
+  hours[k] ||= 0
+  hours[k]  += 1
+
+  k = i["last_status_change_on"].to_time.strftime("%a")
+  days[k] ||= 0
+  days[k]  += 1
 end
 
 puts "Summary for #{SERVICES.join(",")} from #{SINCE} to #{UNTIL}"
 
 Terminal::Table.new do |t|
-  t.headings = "Key", "Count"
+  t.headings = "Subject", "Count"
   t.rows     = subjects.sort { |a,b| b[1]<=>a[1] }
+  t << :separator  
+  t << ["TOTAL", subjects.inject(0) { |s,h| s += h[1] } ]
   puts t
 end
 
@@ -54,9 +61,20 @@ end
 Terminal::Table.new do |t|
   t.headings = "Hour", "Count"
 
-  hours.sort { |a,b| a[0]<=>b[0] }.each do |k,v|
+  hours.each do |k,v|
     t << :separator if [3, 15].include? k # 8 PM and 8 AM PDT
     t << [k,v]
+  end
+
+  puts t
+end
+
+Terminal::Table.new do |t|
+  t.headings = "Day", "Count"
+
+ days.each do |k,v|
+    t << [k,v]
+    t << :separator if k == "Fri"
   end
 
   puts t

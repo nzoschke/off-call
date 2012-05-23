@@ -1,16 +1,13 @@
+require "chronic"
 require "json"
 require "rest-client"
+require "time"
 
-module OffCall
-
-  def self.apply_environment!(filename=".env")
-    read_environment(filename).each { |k,v| ENV[k] = v }
-  end
-
-  def self.read_environment(filename)
+ENV.instance_eval do
+  def source(filename)
     return {} unless File.exists?(filename)
 
-    File.read(filename).split("\n").inject({}) do |hash, line|
+    env = File.read(filename).split("\n").inject({}) do |hash, line|
       if line =~ /\A([A-Za-z_0-9]+)=(.*)\z/
         key, val = [$1, $2]
         case val
@@ -21,13 +18,55 @@ module OffCall
       end
       hash
     end
-  end
 
+    env.each { |k,v| ENV[k] = v }
+  end
+end
+
+class String
+  def to_time
+    Time.parse(self) rescue Chronic.parse(self)
+  end
+end
+
+class Hash
+  def reverse_merge!(h)
+    replace(h.merge(self))
+  end
+end
+
+module OffCall
   module PagerDuty
+
+    def self.api
+      @api || raise("Initialize with PagerDuty.connect")
+    end
+
+    def self.connect(subdomain, user, password)
+      @api = RestClient::Resource.new("https://#{subdomain}.pagerduty.com/api/", user: user, password: password)
+    end
+
+    class Service
+      def initialize(id)
+        @id = id
+      end
+
+      def incidents(opts={})
+        opts.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
+        params = {
+          service:  @id,
+          until:    opts[:until].iso8601,
+          since:    opts[:since].iso8601
+        }
+
+        JSON.parse(PagerDuty.api["v1/incidents"].get(params: params))["incidents"]
+      end
+    end
+
     class Schedule
       def initialize(subdomain, user, password, id)
         @id  = id
-        @api = RestClient::Resource.new("https://#{subdomain}.pagerduty.com/api/beta/schedules/#{@id}", user: user, password: password)
+        @api = PagerDuty.api["beta/schedules/#{@id}"]
       end
 
       def add_override(user_id, start_dt, end_dt)

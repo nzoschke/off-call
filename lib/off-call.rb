@@ -19,7 +19,7 @@ ENV.instance_eval do
       hash
     end
 
-    env.each { |k,v| ENV[k] = v }
+    env.each { |k,v| ENV[k] = v unless ENV[k] }
   end
 end
 

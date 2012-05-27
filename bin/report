@@ -27,7 +27,7 @@ incidents.each do |i|
   # normalize instance-type-id/Service
   k = ((i["trigger_summary_data"] && i["trigger_summary_data"]["subject"]) || i["incident_key"]).
         gsub(/^([a-z-]+)-([0-9]+)\/([^:]+)/, "\\1-XXXXX/\\3").
-        trunc(120)
+        trunc(90)
   subjects[k] ||= 0
   subjects[k]  += 1
 

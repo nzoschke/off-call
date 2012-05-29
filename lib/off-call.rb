@@ -27,6 +27,14 @@ class String
   def to_time
     Time.parse(self) rescue Chronic.parse(self)
   end
+
+  def trunc(len)
+    if (self.length > len)
+      self[0...len-3] + "..."
+    else
+      self
+    end
+  end
 end
 
 class Hash

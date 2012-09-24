@@ -54,6 +54,11 @@ module OffCall
       @api = RestClient::Resource.new("https://#{subdomain}.pagerduty.com/api/", user: user, password: password)
     end
 
+    def self.alerts(params={})
+      params.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
+      JSON.parse(PagerDuty.api["v1/alerts"].get(params: params))["alerts"]
+    end
+
     class Service
       def initialize(id)
         @id = id
@@ -69,6 +74,7 @@ module OffCall
 
         JSON.parse(PagerDuty.api["v1/incidents"].get(params: params))["incidents"]
       end
+
     end
 
     class Schedule

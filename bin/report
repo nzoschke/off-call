@@ -45,7 +45,26 @@ incidents.each do |i|
   days[k]  += 1
 end
 
-puts "Summary for #{SERVICES.join(",")} from #{SINCE} to #{UNTIL}"
+alerts = OffCall::PagerDuty.alerts(since: SINCE, until: UNTIL)
+users = {}
+sms_by_hour = Hash[(0..23).zip [0]*24]
+
+alerts.each do |alert|
+  userid = alert["user"]["id"]
+  users[userid] ||= alert["user"]
+  users[userid]["num_sms"] ||= 0
+
+  if alert["type"] == "SMS"
+    users[userid]["num_sms"] += 1
+  end
+end
+
+puts "# Summary for #{SERVICES.join(",")} from #{SINCE} to #{UNTIL}"
+puts
+
+puts
+puts "## Incident types by frequency"
+puts
 
 Terminal::Table.new do |t|
   t.headings = "Subject", "Count"
@@ -55,11 +74,39 @@ Terminal::Table.new do |t|
   puts t
 end
 
+puts
+puts "## Alerts by person"
+puts
+
+Terminal::Table.new do |t|
+  t.headings = "User", "SMS count"
+
+  smscount = []
+  users.each do |userid,user|
+    next unless user["num_sms"] > 0
+    smscount << [user["name"], user["num_sms"]]
+  end
+  
+  t.rows     = smscount.sort { |a,b| b[1]<=>a[1] }
+  t << :separator  
+  t << ["TOTAL", smscount.inject(0) { |s,h| s += h[1] } ]
+
+  puts t
+end
+
+puts
+puts "## Incidents resolved by person"
+puts
+
 Terminal::Table.new do |t|
   t.headings = "Resolved By", "Count"
   t.rows     = resolvers.sort { |a,b| b[1]<=>a[1] }
   puts t
 end
+
+puts
+puts "## Incidents by hour"
+puts
 
 Terminal::Table.new do |t|
   t.headings = "Hour", "Count"
@@ -71,6 +118,10 @@ Terminal::Table.new do |t|
 
   puts t
 end
+
+puts
+puts "## Incidents by day"
+puts
 
 Terminal::Table.new do |t|
   t.headings = "Day", "Count"

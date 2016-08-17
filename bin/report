@@ -6,7 +6,7 @@ require "terminal-table"
 ENV.source ".env"
 ENV["TZ"] = "UTC"
 
-OffCall::PagerDuty.connect(ENV["PAGERDUTY_SUBDOMAIN"], ENV["PAGERDUTY_USER"], ENV["PAGERDUTY_PASSWORD"])
+OffCall::PagerDuty.connect(ENV["PAGERDUTY_API_KEY"])
 
 SERVICES  = ENV["SERVICES"].split(",") || abort("Must provide SERVICES=PXXXXXX,PYYYYYY")
 SINCE     = ENV["SINCE"].to_time rescue "Last Week".to_time
@@ -36,11 +36,11 @@ incidents.each do |i|
   resolvers[k] ||= 0
   resolvers[k]  += 1
 
-  k = i["last_status_change_on"].to_time.hour
+  k = i["last_status_change_at"].to_time.hour
   hours[k] ||= 0
   hours[k]  += 1
 
-  k = i["last_status_change_on"].to_time.strftime("%a")
+  k = i["last_status_change_at"].to_time.strftime("%a")
   days[k] ||= 0
   days[k]  += 1
 end
@@ -69,7 +69,7 @@ puts
 Terminal::Table.new do |t|
   t.headings = "Subject", "Count"
   t.rows     = subjects.sort { |a,b| b[1]<=>a[1] }
-  t << :separator  
+  t << :separator
   t << ["TOTAL", subjects.inject(0) { |s,h| s += h[1] } ]
   puts t
 end
@@ -86,9 +86,9 @@ Terminal::Table.new do |t|
     next unless user["num_sms"] > 0
     smscount << [user["name"], user["num_sms"]]
   end
-  
+
   t.rows     = smscount.sort { |a,b| b[1]<=>a[1] }
-  t << :separator  
+  t << :separator
   t << ["TOTAL", smscount.inject(0) { |s,h| s += h[1] } ]
 
   puts t

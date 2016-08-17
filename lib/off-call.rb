@@ -50,13 +50,18 @@ module OffCall
       @api || raise("Initialize with PagerDuty.connect")
     end
 
-    def self.connect(subdomain, user, password)
-      @api = RestClient::Resource.new("https://#{subdomain}.pagerduty.com/api/", user: user, password: password)
+    def self.connect(api_key)
+      headers = {
+        Authorization: "Token token=#{api_key}",
+        Accept: 'application/vnd.pagerduty+json;version=2',
+        'Content-type' => 'application/json'
+      }
+      @api = RestClient::Resource.new("https://api.pagerduty.com", headers: headers)
     end
 
     def self.alerts(params={})
       params.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
-      JSON.parse(PagerDuty.api["v1/alerts"].get(params: params))["alerts"]
+      JSON.parse(PagerDuty.api["/notifications"].get(params: params))["notifications"]
     end
 
     class Service
@@ -67,20 +72,20 @@ module OffCall
       def incidents(opts={})
         opts.reverse_merge!(until: Time.now, since: Time.now-60*60*24)
         params = {
-          service:  @id,
+          "service_ids%5B%5D" =>  @id,
           until:    opts[:until].iso8601,
           since:    opts[:since].iso8601
         }
 
-        JSON.parse(PagerDuty.api["v1/incidents"].get(params: params))["incidents"]
+        JSON.parse(PagerDuty.api["/incidents"].get(params: params))["incidents"]
       end
 
     end
 
     class Schedule
-      def initialize(subdomain, user, password, id)
+      def initialize(user, password, id)
         @id  = id
-        @api = PagerDuty.api["beta/schedules/#{@id}"]
+        @api = PagerDuty.api["/schedules/#{@id}"]
       end
 
       def add_override(user_id, start_dt, end_dt)

@@ -25,14 +25,14 @@ days      = Hash[%w(Mon Tue Wed Thu Fri Sat Sun ).zip [0]*7]
 
 incidents.each do |i|
   # normalize instance-type-id/Service
-  k = ((i["trigger_summary_data"] && i["trigger_summary_data"]["subject"]) || i["incident_key"]).
+  k = (i["summary"].split[1..-1].join(" ") || i["incident_key"]).
         gsub(/^([a-z_-]+)-([0-9]+)(.(?:heroku|heroku-b|ops.herokai)?.com)\/([^:]+)/, "\\1-XXXXX\\3/\\4").
         gsub(/^(canary:) (\w+) (\w+) (\d+)/, "\\1 \\2 \\3 N").
         trunc(90)
   subjects[k] ||= 0
   subjects[k]  += 1
 
-  k = i["last_status_change_by"]["name"] rescue "Nobody"
+  k = i["last_status_change_by"]["summary"] rescue "Nobody"
   resolvers[k] ||= 0
   resolvers[k]  += 1
 
@@ -54,7 +54,7 @@ alerts.each do |alert|
   users[userid] ||= alert["user"]
   users[userid]["num_sms"] ||= 0
 
-  if alert["type"] == "SMS"
+  if alert["type"] == "sms_notification"
     users[userid]["num_sms"] += 1
   end
 end
@@ -84,7 +84,7 @@ Terminal::Table.new do |t|
   smscount = []
   users.each do |userid,user|
     next unless user["num_sms"] > 0
-    smscount << [user["name"], user["num_sms"]]
+    smscount << [user["summary"], user["num_sms"]]
   end
 
   t.rows     = smscount.sort { |a,b| b[1]<=>a[1] }
